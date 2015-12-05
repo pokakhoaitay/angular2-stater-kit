@@ -76,3 +76,5 @@ crashlytics-build.properties
 .settings
 
 
+node_modules
+__build__
