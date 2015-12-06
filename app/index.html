@@ -12,5 +12,15 @@
 </head>
 <body>
 <app>Loading...</app>
+<!-- inject:js -->
+<!-- endinject -->
+
+<script>
+    System.config({
+        packages:{'./components':{defaultExtension: 'js'}},
+    });
+
+    System.import('./app/components/app/app')
+</script>
 </body>
 </html>

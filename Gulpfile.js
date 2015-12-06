@@ -10,7 +10,7 @@
  1. Install gulp globally:
  npm install --global gulp
  2. Type the following after navigating in your project folder:
- npm install gulp gulp-util gulp-sass gulp-uglify gulp-rename gulp-minify-css gulp-notify gulp-concat gulp-plumber browser-sync gulp-if gulp-typescript del gulp-util gulp-changed gulp-inject --save-dev
+ npm install gulp gulp-util gulp-sass gulp-uglify gulp-rename gulp-minify-css gulp-notify gulp-concat gulp-plumber browser-sync gulp-if gulp-typescript del gulp-util gulp-changed gulp-inject gulp-webserver --save-dev
  3. Move this file in your project folder
  4. Setup your vhosts or just use static server (see 'Prepare Browser-sync for localhost' below)
  5. Type 'Gulp' and ster developing
@@ -25,15 +25,16 @@ var gulp = require('gulp'),
     minifycss = require('gulp-minify-css'),
     concat = require('gulp-concat'),
     plumber = require('gulp-plumber'),
-    browserSync = require('browser-sync'),
-    reload = browserSync.reload,
+    //browserSync = require('browser-sync'),
+    //reload = browserSync.reload,
     neat = require('node-neat'),
     gulpif = require('gulp-if'),                         // pipe with condition
     del = require('del'),                                 // delete file and folder
     ts = require('gulp-typescript'),                     // typescript compiler
     gutil = require('gulp-util'),                        // log util and more
     changed = require("gulp-changed"),                 // only pipe on files are diffrent whith source files
-    inject = require('gulp-inject')                      // Inject resource to html
+    inject = require('gulp-inject'),                      // Inject resource to html
+    webserver = require('gulp-webserver')
     ;
 
 /* Settings */
@@ -59,7 +60,13 @@ var jsDepsPath_src = [
 var tsDepsPath_src = [
     './app/components/**/*.ts',
     './app/bootstrap.ts'
-]
+];
+
+var nodeModules = [
+    './node_modules/systemjs/dist/system.src.js',
+    './node_modules/angular2/bundles/angular2.dev.js',
+    './node_modules/angular2/bundles/router.dev.js'
+];
 
 
 /* Reload task */
@@ -108,7 +115,7 @@ var sassTask = function (options, callback) {
                     callback();
             })
             /* Reload the browser CSS after every change */
-            .pipe(reload({stream: true}))
+            //.pipe(reload({stream: true}))
         ;
 
     };
@@ -226,7 +233,8 @@ var tsTask = function (options, callback) {
                     gutil.log('Watching ts files change...')
                 if (typeof callback !== 'undefined')
                     callback();
-            });
+            })
+            ;
     }
     run();
     if (options.watch) {
@@ -241,7 +249,7 @@ gulp.task('3_ts.dev', function () {
     var options = {devBuild: true, minify: false, watch: false, buildDir: BUILD_DIR_DEV};
     tsTask(options);
 });
-gulp.task('ts.dev+clean',['clean.ts.dev'], function () {
+gulp.task('ts.dev+clean', ['clean.ts.dev'], function () {
     var options = {devBuild: true, minify: false, watch: false, buildDir: BUILD_DIR_DEV};
     tsTask(options);
 });
@@ -249,7 +257,7 @@ gulp.task('3_ts.dev.watch', function () {
     var options = {devBuild: true, minify: false, watch: true, buildDir: BUILD_DIR_DEV};
     tsTask(options);
 });
-gulp.task('ts.dev.watch+clean',['clean.ts.dev'], function () {
+gulp.task('ts.dev.watch+clean', ['clean.ts.dev'], function () {
     var options = {devBuild: true, minify: false, watch: true, buildDir: BUILD_DIR_DEV};
     tsTask(options);
 });
@@ -263,7 +271,7 @@ gulp.task('ts.prod', function () {
  * HTML
  *----------------------------------------*/
 var htmlTask = function (options) {
-    var cssDest =convertBuildPaths(sassDepsPath_src,options.buildDir,'.sass','.css');
+    var cssDest = convertBuildPaths(sassDepsPath_src, options.buildDir, '.sass', '.css');
     //process.stdout.write(cssDest)
     var run = function () {
         gulp.src(['./app/index.html'], {base: BASE_DIR})
@@ -271,13 +279,14 @@ var htmlTask = function (options) {
             .pipe(plumber({errorHandler: onError}))
             .pipe(gulp.dest(options.buildDir))
             .pipe(inject(gulp.src(cssDest, {read: false}), {relative: true}))
+            .pipe(inject(gulp.src(nodeModules, {read: false}), {relative: false}))//TODO: Need inject from other source in PROD
             .pipe(gulp.dest(options.buildDir));
     }
     run();
 }
 
 //NOTE: Run gulp css, js, ts first
-gulp.task('html.dev', function () {
+gulp.task('5_html.dev', function () {
     var options = {devBuild: true, minify: false, watch: true, buildDir: BUILD_DIR_DEV};
     htmlTask(options);
 });
@@ -286,7 +295,7 @@ gulp.task('html.dev', function () {
 /*-----------------------------------------
  * ALL DEV
  *----------------------------------------*/
-gulp.task('4_all.dev.!html',['sass.dev','js.dev','ts.dev'])
+gulp.task('4_all.dev.!html', ['sass.dev', 'js.dev', 'ts.dev'])
 
 gulp.task('4_all.dev', function () {
     var options = {devBuild: true, minify: false, watch: false, buildDir: BUILD_DIR_DEV};
@@ -321,10 +330,10 @@ gulp.task('clean.css', function () {
 });
 
 gulp.task('clean.ts.dev', function () {
-    del(convertBuildPaths(tsDepsPath_src,BUILD_DIR_DEV,'.ts','.js'))
+    del(convertBuildPaths(tsDepsPath_src, BUILD_DIR_DEV, '.ts', '.js'))
 });
 gulp.task('clean.ts.prod', function () {
-    del(convertBuildPaths(tsDepsPath_src,BUILD_DIR_PROD,'.ts','.js'))
+    del(convertBuildPaths(tsDepsPath_src, BUILD_DIR_PROD, '.ts', '.js'))
 });
 gulp.task('clean.all.dev', function () {
     del('__build__/prod')
@@ -337,6 +346,21 @@ gulp.task('clean.all.prod', function () {
 gulp.task('clean.all', function () {
     del('__build__')
 });
+
+
+/*-----------------------------------------
+ * BROWSER
+ *----------------------------------------*/
+gulp.task('0_browse.dev', function () {
+    gulp.src(BUILD_DIR_DEV)
+        .pipe(webserver({
+            livereload: true,
+            directoryListing: false,
+            open: true,
+            port:7777
+        }));
+});
+
 
 
 /*-----------------------------------------
