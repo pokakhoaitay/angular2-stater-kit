@@ -10,48 +10,55 @@
  1. Install gulp globally:
  npm install --global gulp
  2. Type the following after navigating in your project folder:
- npm install gulp gulp-util gulp-sass gulp-uglify gulp-rename gulp-minify-css gulp-notify gulp-concat gulp-plumber browser-sync gulp-if gulp-typescript del gulp-util gulp-changed --save-dev
+ npm install gulp gulp-util gulp-sass gulp-uglify gulp-rename gulp-minify-css gulp-notify gulp-concat gulp-plumber browser-sync gulp-if gulp-typescript del gulp-util gulp-changed gulp-inject --save-dev
  3. Move this file in your project folder
  4. Setup your vhosts or just use static server (see 'Prepare Browser-sync for localhost' below)
  5. Type 'Gulp' and ster developing
  */
 
 /* Needed gulp config */
-var gulp = require('gulp');
-var sass = require('gulp-sass');
-var uglify = require('gulp-uglify');
-var rename = require('gulp-rename');
-var notify = require('gulp-notify');
-var minifycss = require('gulp-minify-css');
-var concat = require('gulp-concat');
-var plumber = require('gulp-plumber');
-var browserSync = require('browser-sync');
-var reload = browserSync.reload;
-var neat = require('node-neat');
-var gulpif = require('gulp-if');                      // pipe with condition
-var del = require('del');                              // delete file and folder
-var ts = require('gulp-typescript')                   // typescript compiler
-var gutil = require('gulp-util')                      // log util and more
-var changed = require("gulp-changed");              // only pipe on files are diffrent whith source files
+var gulp = require('gulp'),
+    sass = require('gulp-sass'),
+    uglify = require('gulp-uglify'),
+    rename = require('gulp-rename'),
+    notify = require('gulp-notify'),
+    minifycss = require('gulp-minify-css'),
+    concat = require('gulp-concat'),
+    plumber = require('gulp-plumber'),
+    browserSync = require('browser-sync'),
+    reload = browserSync.reload,
+    neat = require('node-neat'),
+    gulpif = require('gulp-if'),                         // pipe with condition
+    del = require('del'),                                 // delete file and folder
+    ts = require('gulp-typescript'),                     // typescript compiler
+    gutil = require('gulp-util'),                        // log util and more
+    changed = require("gulp-changed"),                 // only pipe on files are diffrent whith source files
+    inject = require('gulp-inject')                      // Inject resource to html
+    ;
 
 /* Settings */
-var BUILD_DIR_DEV = "__build__/dev";
-var BUILD_DIR_PROD = "__build__/prod";
-var BASE_DIR="./app";
+var BUILD_DIR_DEV = "__build__/dev",
+    BUILD_DIR_PROD = "__build__/prod",
+    BASE_DIR = "./app";
 var sassDepsPath_src = [
-    './app/assets/css/**/*.sass',
-    './app/assets/css/**/*.scss',
-    './app/assets/css/**/*.css'
+    './app/assets/css/site.sass',
+    './app/assets/css/theme.blue.sass',
+];
+var cssDestPaths = [
+    BUILD_DIR_DEV + '/assets/css/site.css',
+    BUILD_DIR_DEV + '/assets/css/theme.blue.css',
 ];
 var jsDepsPath_src = [
     /* NOTE: Add your JS files here, they will be combined in this order */
     'js/vendor/jquery-1.11.1.js',
     'js/app.js',
-    './app/assets/js/init.js'
+    './app/assets/js/init.js',
+    //TODO: add lib js here
 ];
 
 var tsDepsPath_src = [
-    './app/components/**/*.ts'
+    './app/components/**/*.ts',
+    './app/bootstrap.ts'
 ]
 
 
@@ -84,11 +91,11 @@ gulp.task('browser-sync', function () {
 /*----------------------
  * Private
  */
-var sassTask = function (options) {
+var sassTask = function (options, callback) {
     var run = function () {
         gulp.src(sassDepsPath_src, {base: BASE_DIR})
-            //.pipe(plumber())
             .pipe(changed(options.buildDir))
+            .pipe(plumber({errorHandler: onError}))
             .pipe(sass())
             .pipe(gulp.dest(options.buildDir))
             .pipe(gulpif(options.minify, rename({suffix: '.min'})))
@@ -96,11 +103,13 @@ var sassTask = function (options) {
             .pipe(gulpif(options.minify, gulp.dest(options.buildDir)))
             .on('end', function () {
                 if (options.watch)
-                    gutil.log('Watching file change...')
+                    gutil.log('Watching css files change...')
+                if (typeof callback !== 'undefined')
+                    callback();
             })
             /* Reload the browser CSS after every change */
             .pipe(reload({stream: true}))
-            ;
+        ;
 
     };
     run();
@@ -115,12 +124,12 @@ var sassTask = function (options) {
 /*----------------------
  * Build Dev
  */
-gulp.task('sass.dev', function () {
+gulp.task('1_sass.dev', function () {
     var options = {devBuild: true, minify: false, watch: false, buildDir: BUILD_DIR_DEV};
     sassTask(options);
 });
 
-gulp.task('sass.dev.watch', function () {
+gulp.task('1_sass.dev.watch', function () {
     var options = {devBuild: true, minify: false, watch: true, buildDir: BUILD_DIR_DEV};
     sassTask(options);
 });
@@ -138,18 +147,26 @@ gulp.task('sass.prod', function () {
  * JS TASK
  *----------------------------------------*/
 
-var jsTask = function (options) {
+var jsTask = function (options, callback) {
     var run = function () {
-        return gulp.src(jsDepsPath_src, {base: BASE_DIR})
+        var gulpResult = gulp.src(jsDepsPath_src, {base: BASE_DIR})
             .pipe(changed(options.buildDir))
+            .pipe(plumber({errorHandler: onError}))
             .pipe(gulpif(!options.devBuild, concat('site.js')))
-            .pipe(gulp.dest(options.buildDir))
-            .pipe(gulpif(options.minify, rename({suffix: '.min'})))
-            .pipe(gulpif(options.minify, uglify()))
-            .pipe(gulpif(options.minify, gulp.dest(options.buildDir)))
+            .pipe(gulp.dest(options.buildDir));
+        //WTF? gulpif here cause .on('end') not working, this is workarround by if statement
+        if (options.minify) {
+            gulpResult
+                .pipe(gulpif(options.minify, rename({suffix: '.min'})))
+                .pipe(gulpif(options.minify, uglify()))
+                .pipe(gulpif(options.minify, gulp.dest(options.buildDir)))
+        }
+        gulpResult
             .on('end', function () {
                 if (options.watch)
-                    gutil.log('Watching file change...')
+                    gutil.log('Watching js files change...')
+                if (typeof callback !== 'undefined')
+                    callback();
             });
     };
 
@@ -162,51 +179,77 @@ var jsTask = function (options) {
     }
 };
 
-gulp.task('js.dev', function () {
+gulp.task('2_js.dev', function () {
     var options = {devBuild: true, minify: false, watch: false, buildDir: BUILD_DIR_DEV};
     jsTask(options);
 });
 
-gulp.task('js.dev.watch', function () {
+gulp.task('2_js.dev.watch', function () {
     var options = {devBuild: true, minify: false, watch: true, buildDir: BUILD_DIR_DEV};
     jsTask(options);
 });
+
 
 gulp.task('js.prod', function () {
     var options = {devBuild: false, minify: true, watch: false, buildDir: BUILD_DIR_PROD};
     jsTask(options);
 });
 
+//TODO: Write copy lib js here
+
 
 /*-----------------------------------------
  * TYPESCRIPT
  *----------------------------------------*/
-var tsProject = ts.createProject('tsconfig.json');
+//var tsProject = ts.createProject('tsconfig.json');
 //var tsProject = ts.createProject('tsconfig.json', { sortOutput: true });
-var tsTask = function (options) {
+var tsTask = function (options, callback) {
     var run = function () {
-        var tsResult = tsProject.src() // instead of gulp.src(...)
+        var tsResult = gulp.src(tsDepsPath_src, {base: BASE_DIR}) // instead of gulp.src(...)
             .pipe(changed(options.buildDir))
-            .pipe(ts(tsProject));
+            .pipe(plumber({errorHandler: onError}))
+            .pipe(ts({
+                "target": "es5",
+                "module": "commonjs",
+                "declaration": true,
+                "noImplicitAny": false,
+                "removeComments": true,
+                "noLib": false,
+                "emitDecoratorMetadata": true,
+                "experimentalDecorators": true,
+                "sourceMap": true
+            }));
         return tsResult.js
             .pipe(gulp.dest(options.buildDir))
             .on('end', function () {
                 if (options.watch)
-                    gutil.log('Watching file change...')
+                    gutil.log('Watching ts files change...')
+                if (typeof callback !== 'undefined')
+                    callback();
             });
     }
     run();
     if (options.watch) {
         gulp.watch(tsDepsPath_src, run)
-            .on('change', logOnChange(e));
+            .on('change', function (e) {
+                logOnChange(e)
+            });
     }
 }
 
-gulp.task('ts.dev', function () {
+gulp.task('3_ts.dev', function () {
     var options = {devBuild: true, minify: false, watch: false, buildDir: BUILD_DIR_DEV};
     tsTask(options);
 });
-gulp.task('ts.dev.watch', function () {
+gulp.task('ts.dev+clean',['clean.ts.dev'], function () {
+    var options = {devBuild: true, minify: false, watch: false, buildDir: BUILD_DIR_DEV};
+    tsTask(options);
+});
+gulp.task('3_ts.dev.watch', function () {
+    var options = {devBuild: true, minify: false, watch: true, buildDir: BUILD_DIR_DEV};
+    tsTask(options);
+});
+gulp.task('ts.dev.watch+clean',['clean.ts.dev'], function () {
     var options = {devBuild: true, minify: false, watch: true, buildDir: BUILD_DIR_DEV};
     tsTask(options);
 });
@@ -217,8 +260,80 @@ gulp.task('ts.prod', function () {
 
 
 /*-----------------------------------------
- * CLEAN ALL
+ * HTML
  *----------------------------------------*/
+var htmlTask = function (options) {
+    var cssDest =convertBuildPaths(sassDepsPath_src,options.buildDir,'.sass','.css');
+    //process.stdout.write(cssDest)
+    var run = function () {
+        gulp.src(['./app/index.html'], {base: BASE_DIR})
+            //.pipe(changed(options.buildDir))
+            .pipe(plumber({errorHandler: onError}))
+            .pipe(gulp.dest(options.buildDir))
+            .pipe(inject(gulp.src(cssDest, {read: false}), {relative: true}))
+            .pipe(gulp.dest(options.buildDir));
+    }
+    run();
+}
+
+//NOTE: Run gulp css, js, ts first
+gulp.task('html.dev', function () {
+    var options = {devBuild: true, minify: false, watch: true, buildDir: BUILD_DIR_DEV};
+    htmlTask(options);
+});
+
+
+/*-----------------------------------------
+ * ALL DEV
+ *----------------------------------------*/
+gulp.task('4_all.dev.!html',['sass.dev','js.dev','ts.dev'])
+
+gulp.task('4_all.dev', function () {
+    var options = {devBuild: true, minify: false, watch: false, buildDir: BUILD_DIR_DEV};
+    sassTask(options, function () {
+        jsTask(options, function () {
+            tsTask(options, function () {
+                htmlTask(options);
+            });
+        });
+    });
+});
+gulp.task('4_all.dev.watch', function () {
+    var options = {devBuild: true, minify: false, watch: true, buildDir: BUILD_DIR_DEV};
+    sassTask(options, function () {
+        jsTask(options, function () {
+            tsTask(options, function () {
+                htmlTask(options);
+            });
+        });
+    });
+});
+
+
+/*-----------------------------------------
+ * CLEAN
+ *----------------------------------------*/
+gulp.task('clean.js', function () {
+    del(BUILD_DIR_DEV + '/assets/**/*.js')
+});
+gulp.task('clean.css', function () {
+    del(BUILD_DIR_DEV + '/assets/**/*.css')
+});
+
+gulp.task('clean.ts.dev', function () {
+    del(convertBuildPaths(tsDepsPath_src,BUILD_DIR_DEV,'.ts','.js'))
+});
+gulp.task('clean.ts.prod', function () {
+    del(convertBuildPaths(tsDepsPath_src,BUILD_DIR_PROD,'.ts','.js'))
+});
+gulp.task('clean.all.dev', function () {
+    del('__build__/prod')
+});
+
+gulp.task('clean.all.prod', function () {
+    del('__build__/prod')
+});
+
 gulp.task('clean.all', function () {
     del('__build__')
 });
@@ -231,7 +346,27 @@ gulp.task('clean.all', function () {
 function logOnChange(e) {
     console.log('File ' + e.path + ' was ' + e.type + ' and commited')
 }
+var onError = function (err) {
+    notify.onError({
+        title: "Gulp",
+        subtitle: "Failure!",
+        message: "Error: <%= error.message %>",
+        sound: "Beep"
+    })(err);
 
+    this.emit('end');
+};
+
+
+function convertBuildPaths(srcPaths, buildDir, replaceExt, byExt) {
+    var paths = new Array();
+    srcPaths.forEach(function (item) {
+        var replace = item.replace('./app', buildDir).replace(replaceExt, byExt);
+        paths.push(replace)
+    });
+
+    return paths;
+}
 
 //DOCS
 //

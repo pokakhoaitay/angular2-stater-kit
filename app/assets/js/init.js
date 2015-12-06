@@ -3,5 +3,5 @@
  */
 
 $('#test').onclick(function () {
-    alert('Hello');
+    alert('Hello girls');
 })
