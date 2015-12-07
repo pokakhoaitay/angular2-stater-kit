@@ -4,7 +4,7 @@
 
 
 //noinspection TypeScriptCheckImport
-import{Component, View} from 'angular2/angular2'
+import{Component, View,bootstrap} from 'angular2/angular2'
 
 @Component({
     selector:'app',
@@ -14,3 +14,4 @@ import{Component, View} from 'angular2/angular2'
 export class AppCmp{
 
 }
+

@@ -6,21 +6,27 @@
     <title>Angular2 Starter Kit</title>
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
+    <base href="/">
     <!-- inject:css -->
     <!-- endinject -->
 </head>
 <body>
 <app>Loading...</app>
+<!-- node:js -->
+<!-- endinject -->
+
+<!-- lib:js -->
+<!-- endinject -->
+
 <!-- inject:js -->
 <!-- endinject -->
 
 <script>
     System.config({
-        packages:{'./components':{defaultExtension: 'js'}},
+        packages:{'/components':{defaultExtension: 'js'}},
     });
 
-    System.import('./app/components/app/app')
+    System.import('components/app/bootstrap')
 </script>
 </body>
 </html>

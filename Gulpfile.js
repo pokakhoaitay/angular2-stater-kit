@@ -10,7 +10,7 @@
  1. Install gulp globally:
  npm install --global gulp
  2. Type the following after navigating in your project folder:
- npm install gulp gulp-util gulp-sass gulp-uglify gulp-rename gulp-minify-css gulp-notify gulp-concat gulp-plumber browser-sync gulp-if gulp-typescript del gulp-util gulp-changed gulp-inject gulp-webserver --save-dev
+ npm install gulp gulp-util gulp-sass gulp-uglify gulp-rename gulp-minify-css gulp-notify gulp-concat gulp-plumber browser-sync gulp-if gulp-typescript del gulp-util gulp-changed gulp-inject gulp-webserver gulp-replace --save-dev
  3. Move this file in your project folder
  4. Setup your vhosts or just use static server (see 'Prepare Browser-sync for localhost' below)
  5. Type 'Gulp' and ster developing
@@ -25,8 +25,8 @@ var gulp = require('gulp'),
     minifycss = require('gulp-minify-css'),
     concat = require('gulp-concat'),
     plumber = require('gulp-plumber'),
-    //browserSync = require('browser-sync'),
-    //reload = browserSync.reload,
+//browserSync = require('browser-sync'),
+//reload = browserSync.reload,
     neat = require('node-neat'),
     gulpif = require('gulp-if'),                         // pipe with condition
     del = require('del'),                                 // delete file and folder
@@ -34,7 +34,8 @@ var gulp = require('gulp'),
     gutil = require('gulp-util'),                        // log util and more
     changed = require("gulp-changed"),                 // only pipe on files are diffrent whith source files
     inject = require('gulp-inject'),                      // Inject resource to html
-    webserver = require('gulp-webserver')
+    webserver = require('gulp-webserver'),
+    replace = require('gulp-replace')
     ;
 
 /* Settings */
@@ -57,12 +58,16 @@ var jsDepsPath_src = [
     //TODO: add lib js here
 ];
 
+var htmlDepsPaths_Src = [
+    './app/components/**/*.html',
+]
+
 var tsDepsPath_src = [
     './app/components/**/*.ts',
-    './app/bootstrap.ts'
+    //'./app/compo/bootstrap.ts'
 ];
 
-var nodeModules = [
+var nodeModulesSrc = [
     './node_modules/systemjs/dist/system.src.js',
     './node_modules/angular2/bundles/angular2.dev.js',
     './node_modules/angular2/bundles/router.dev.js'
@@ -100,20 +105,22 @@ gulp.task('browser-sync', function () {
  */
 var sassTask = function (options, callback) {
     var run = function () {
-        gulp.src(sassDepsPath_src, {base: BASE_DIR})
+        var task = gulp.src(sassDepsPath_src, {base: BASE_DIR})
             .pipe(changed(options.buildDir))
             .pipe(plumber({errorHandler: onError}))
             .pipe(sass())
-            .pipe(gulp.dest(options.buildDir))
-            .pipe(gulpif(options.minify, rename({suffix: '.min'})))
-            .pipe(gulpif(options.minify, minifycss()))
-            .pipe(gulpif(options.minify, gulp.dest(options.buildDir)))
-            .on('end', function () {
-                if (options.watch)
-                    gutil.log('Watching css files change...')
-                if (typeof callback !== 'undefined')
-                    callback();
-            })
+            .pipe(gulp.dest(options.buildDir));
+        if (options.minify) {
+            task.pipe(gulpif(options.minify, rename({suffix: '.min'})))
+                .pipe(gulpif(options.minify, minifycss()))
+                .pipe(gulpif(options.minify, gulp.dest(options.buildDir)))
+        }
+        task.on('end', function () {
+            if (options.watch)
+                gutil.log('Watching css files change...')
+            if (typeof callback !== 'undefined')
+                callback();
+        })
             /* Reload the browser CSS after every change */
             //.pipe(reload({stream: true}))
         ;
@@ -170,6 +177,7 @@ var jsTask = function (options, callback) {
         }
         gulpResult
             .on('end', function () {
+                gutil.log('DONE JS')
                 if (options.watch)
                     gutil.log('Watching js files change...')
                 if (typeof callback !== 'undefined')
@@ -272,37 +280,89 @@ gulp.task('ts.prod', function () {
  *----------------------------------------*/
 var htmlTask = function (options) {
     var cssDest = convertBuildPaths(sassDepsPath_src, options.buildDir, '.sass', '.css');
+    var jsDest = convertBuildPaths(jsDepsPath_src, options.buildDir, '', '');
+    var nodeDest = mapNodeModulesSrcToBuil(options.buildDir);
+    //TODO: Implement Bower resource management
     //process.stdout.write(cssDest)
+    var run1 = function () {
+        gulp.src(htmlDepsPaths_Src, {base: BASE_DIR})
+            .pipe(gulp.dest(options.buildDir));
+    }
     var run = function () {
         gulp.src(['./app/index.html'], {base: BASE_DIR})
             //.pipe(changed(options.buildDir))
             .pipe(plumber({errorHandler: onError}))
             .pipe(gulp.dest(options.buildDir))
             .pipe(inject(gulp.src(cssDest, {read: false}), {relative: true}))
-            .pipe(inject(gulp.src(nodeModules, {read: false}), {relative: false}))//TODO: Need inject from other source in PROD
+            .pipe(inject(gulp.src(nodeDest, {read: false}), {
+                relative: true,
+                name: 'node'
+            }))//TODO: Need inject from other source in PROD for node libs
+            .pipe(inject(gulp.src(jsDest, {read: false}), {relative: true}))
+            //.pipe(replace('<%IMPORT_APP%>', './dev'))
             .pipe(gulp.dest(options.buildDir));
     }
     run();
+    run1();
+    if (options.watch) {
+        gulp.watch(htmlDepsPaths_Src, run1)
+            .on('change', function (e) {
+                logOnChange(e)
+            });
+        gulp.watch(['./app/index.html'], run)
+            .on('change', function (e) {
+                logOnChange(e)
+            });
+    }
 }
 
 //NOTE: Run gulp css, js, ts first
 gulp.task('5_html.dev', function () {
+    var options = {devBuild: true, minify: false, watch: false, buildDir: BUILD_DIR_DEV};
+    htmlTask(options);
+});
+gulp.task('5_html.dev.watch', function () {
     var options = {devBuild: true, minify: false, watch: true, buildDir: BUILD_DIR_DEV};
     htmlTask(options);
 });
 
 
 /*-----------------------------------------
+ * LIBS
+ *----------------------------------------*/
+var libTask = function (options, callback) {
+    var run = function () {
+        gulp.src(nodeModulesSrc, {base: BASE_DIR})
+            .pipe(plumber({errorHandler: onError}))
+            .pipe(gulp.dest(options.buildDir + '/assets/lib/node-modules'))
+            .on('end', function () {
+                if (typeof callback !== 'undefined') {
+                    callback();
+                }
+            });
+    }
+    run();
+}
+gulp.task('6_lib.dev', function () {
+    var options = {devBuild: true, minify: false, watch: false, buildDir: BUILD_DIR_DEV};
+    libTask(options);
+})
+
+
+/*-----------------------------------------
  * ALL DEV
  *----------------------------------------*/
-gulp.task('4_all.dev.!html', ['sass.dev', 'js.dev', 'ts.dev'])
+gulp.task('4_all.dev.!html', ['1_sass.dev', '2_js.dev', '3_ts.dev'])
+gulp.task('4_all.dev.watch.!html', ['1_sass.dev.watch', '2_js.dev.watch', '3_ts.dev.watch'])
 
 gulp.task('4_all.dev', function () {
     var options = {devBuild: true, minify: false, watch: false, buildDir: BUILD_DIR_DEV};
     sassTask(options, function () {
         jsTask(options, function () {
             tsTask(options, function () {
-                htmlTask(options);
+                libTask(options, function () {
+                    htmlTask(options);
+                });
             });
         });
     });
@@ -312,7 +372,9 @@ gulp.task('4_all.dev.watch', function () {
     sassTask(options, function () {
         jsTask(options, function () {
             tsTask(options, function () {
-                htmlTask(options);
+                libTask(options, function () {
+                    htmlTask(options);
+                });
             });
         });
     });
@@ -336,7 +398,7 @@ gulp.task('clean.ts.prod', function () {
     del(convertBuildPaths(tsDepsPath_src, BUILD_DIR_PROD, '.ts', '.js'))
 });
 gulp.task('clean.all.dev', function () {
-    del('__build__/prod')
+    del('__build__/dev')
 });
 
 gulp.task('clean.all.prod', function () {
@@ -357,10 +419,9 @@ gulp.task('0_browse.dev', function () {
             livereload: true,
             directoryListing: false,
             open: true,
-            port:7777
+            port: 7778
         }));
 });
-
 
 
 /*-----------------------------------------
@@ -388,7 +449,15 @@ function convertBuildPaths(srcPaths, buildDir, replaceExt, byExt) {
         var replace = item.replace('./app', buildDir).replace(replaceExt, byExt);
         paths.push(replace)
     });
+    return paths;
+}
 
+function mapNodeModulesSrcToBuil(buildDir) {
+    var paths = new Array();
+    nodeModulesSrc.forEach(function (item) {
+        var replace = item.replace('./node_modules', buildDir + '/assets/lib/node_modules');
+        paths.push(replace)
+    });
     return paths;
 }
 
