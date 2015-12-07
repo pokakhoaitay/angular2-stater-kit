@@ -416,7 +416,7 @@ gulp.task('clean.all', function () {
 gulp.task('0_browse.dev', function () {
     gulp.src(BUILD_DIR_DEV)
         .pipe(webserver({
-            livereload: true,
+            livereload: false,
             directoryListing: false,
             open: true,
             port: 7778

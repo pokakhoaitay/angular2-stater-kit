@@ -16,6 +16,8 @@
   ],
   "compileOnSave": false,
   "files":[
-    "./app/components/app/app.ts"
+    "./app/components/app/app.ts",
+    "./app/components/about/about.ts",
+    "./app/components/home/home.ts"
   ]
 }

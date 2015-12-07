@@ -4,7 +4,7 @@
 import{Component, View} from 'angular2/angular2'
 
 @Component({
-    templateUrl:'./app/components/home/home.html'
+    templateUrl:'./components/home/home.html'
 })
 
 export class HomeCmp{
