@@ -69,7 +69,13 @@ var tsDepsPath_src = [
 var nodeModulesSrc = [
     './node_modules/systemjs/dist/system.src.js',
     './node_modules/angular2/bundles/angular2.dev.js',
-    './node_modules/angular2/bundles/router.dev.js'
+    './node_modules/angular2/bundles/router.dev.js',
+
+    //For Css
+
+    //For Other file (aka font, image,...)
+    './bower_components/Materialize/dist/**/*.*',
+    '!./bower_components/Materialize/dist/**/*.min.*',
 ];
 
 
@@ -280,7 +286,7 @@ gulp.task('ts.prod', function () {
 var htmlTask = function (options) {
     var cssDest = convertBuildPaths(sassDepsPath_src, options.buildDir, '.sass', '.css');
     var jsDest = convertBuildPaths(jsDepsPath_src, options.buildDir, '', '');
-    var nodeDest = mapNodeModulesSrcToBuil(options.buildDir);
+    var libDest = libToInject(options.buildDir);
     //TODO: Implement Bower resource management
     //process.stdout.write(cssDest)
     var run1 = function () {
@@ -293,7 +299,7 @@ var htmlTask = function (options) {
             .pipe(plumber({errorHandler: onError}))
             .pipe(gulp.dest(options.buildDir))
             .pipe(inject(gulp.src(cssDest, {read: false}), {relative: true}))
-            .pipe(inject(gulp.src(nodeDest, {read: false}), {
+            .pipe(inject(gulp.src(libDest, {read: false}), {
                 relative: true,
                 name: 'node'
             }))//TODO: Need inject from other source in PROD for node libs
@@ -331,9 +337,10 @@ gulp.task('5_html.dev.watch', function () {
  *----------------------------------------*/
 var libTask = function (options, callback) {
     var run = function () {
-        gulp.src(nodeModulesSrc, {base: BASE_DIR})
+        gulp.src(libToCopy(nodeModulesSrc), {base: BASE_DIR})
             .pipe(plumber({errorHandler: onError}))
             .pipe(gulp.dest(options.buildDir + '/assets/lib/node-modules'))
+            .pipe(gulp.dest(options.buildDir + '/assets/lib/bower_components'))
             .on('end', function () {
                 if (typeof callback !== 'undefined') {
                     callback();
@@ -413,14 +420,13 @@ gulp.task('clean.all', function () {
  * BROWSER
  *----------------------------------------*/
 gulp.task('0_browse.dev', function () {
-    //http://www.browsersync.io/docs/options/
     browserSync.init([BUILD_DIR_DEV + "/**/*.html",
         BUILD_DIR_DEV + "/**/*.css",
-        BUILD_DIR_DEV + "/**/*.js",
-    ], {
+        BUILD_DIR_DEV + "/**/*.js",],{
         server: {
             baseDir: BUILD_DIR_DEV
-        }
+        },
+        //proxy: '127.0.0.1:9999',
     });
     //gulp.watch([BUILD_DIR_DEV + "/**/*.html",
     //    BUILD_DIR_DEV + "/**/*.css",
@@ -460,10 +466,20 @@ function convertBuildPaths(srcPaths, buildDir, replaceExt, byExt) {
     return paths;
 }
 
-function mapNodeModulesSrcToBuil(buildDir) {
+function libToInject(buildDir) {
     var paths = new Array();
     nodeModulesSrc.forEach(function (item) {
-        var replace = item.replace('./node_modules', buildDir + '/assets/lib/node_modules');
+        var replace = item.replace('./node_modules', buildDir + '/assets/lib/node_modules')
+            .replace('./bower_components', buildDir + '/assets/lib/bower_components');
+        paths.push(replace)
+    });
+    return paths;
+}
+
+function libToCopy(buildDir) {
+    var paths = new Array();
+    nodeModulesSrc.forEach(function (item) {
+        var replace = item.replace('@', '');
         paths.push(replace)
     });
     return paths;
