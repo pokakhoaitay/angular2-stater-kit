@@ -413,15 +413,19 @@ gulp.task('clean.all', function () {
  * BROWSER
  *----------------------------------------*/
 gulp.task('0_browse.dev', function () {
-    browserSync.init({
+    //http://www.browsersync.io/docs/options/
+    browserSync.init([BUILD_DIR_DEV + "/**/*.html",
+        BUILD_DIR_DEV + "/**/*.css",
+        BUILD_DIR_DEV + "/**/*.js",
+    ], {
         server: {
             baseDir: BUILD_DIR_DEV
         }
     });
-    gulp.watch([BUILD_DIR_DEV + "/**/*.html",
-        BUILD_DIR_DEV + "/**/*.css",
-        BUILD_DIR_DEV + "/**/*.js",
-    ]).on('change', browserSync.reload);
+    //gulp.watch([BUILD_DIR_DEV + "/**/*.html",
+    //    BUILD_DIR_DEV + "/**/*.css",
+    //    BUILD_DIR_DEV + "/**/*.js",
+    //]).on('change', browserSync.reload);
 });
 
 gulp.task('0_Exit-sever.dev', browserSync.exit);
