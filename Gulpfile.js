@@ -286,7 +286,7 @@ gulp.task('ts.prod', function () {
 var htmlTask = function (options) {
     var cssDest = convertBuildPaths(sassDepsPath_src, options.buildDir, '.sass', '.css');
     var jsDest = convertBuildPaths(jsDepsPath_src, options.buildDir, '', '');
-    var libDest = libToInject(options.buildDir);
+    var libDest = libToInject(nodeModulesSrc, options.buildDir);
     //TODO: Implement Bower resource management
     //process.stdout.write(cssDest)
     var run1 = function () {
@@ -466,15 +466,17 @@ function convertBuildPaths(srcPaths, buildDir, replaceExt, byExt) {
     return paths;
 }
 
-function libToInject(buildDir) {
+function libToInject(srcArr, buildDir) {
     var paths = new Array();
-    nodeModulesSrc.forEach(function (item) {
+    srcArr.forEach(function (item) {
         var replace = item.replace('./node_modules', buildDir + '/assets/lib/node_modules')
             .replace('./bower_components', buildDir + '/assets/lib/bower_components');
         paths.push(replace)
     });
     return paths;
 }
+
+
 
 function libToCopy(buildDir) {
     var paths = new Array();
