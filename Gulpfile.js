@@ -45,10 +45,7 @@ var sassDepsPath_src = [
     './app/assets/css/site.sass',
     './app/assets/css/theme.blue.sass',
 ];
-var cssDestPaths = [
-    BUILD_DIR_DEV + '/assets/css/site.css',
-    BUILD_DIR_DEV + '/assets/css/theme.blue.css',
-];
+
 var jsDepsPath_src = [
     /* NOTE: Add your JS files here, they will be combined in this order */
     'js/vendor/jquery-1.11.1.js',
@@ -72,12 +69,19 @@ var nodeModulesSrc = [
     './node_modules/angular2/bundles/router.dev.js',
 
     //For Css
+    './bower_components/Materialize/dist/css/materialize.css',
 
     //For Other file (aka font, image,...)
+    './bower_components/jquery/dist/jquery.min.js',
     './bower_components/Materialize/dist/**/*.*',
     '!./bower_components/Materialize/dist/**/*.min.*',
 ];
 
+
+//Define list of files that exclude from inject to html index file
+var excludeFromInject = [
+    //'./bower_components/jquery/dist/jquery.min.js'
+]
 
 /* Reload task */
 gulp.task('bs-reload', function () {
@@ -422,7 +426,7 @@ gulp.task('clean.all', function () {
 gulp.task('0_browse.dev', function () {
     browserSync.init([BUILD_DIR_DEV + "/**/*.html",
         BUILD_DIR_DEV + "/**/*.css",
-        BUILD_DIR_DEV + "/**/*.js",],{
+        BUILD_DIR_DEV + "/**/*.js",], {
         server: {
             baseDir: BUILD_DIR_DEV
         },
@@ -469,14 +473,14 @@ function convertBuildPaths(srcPaths, buildDir, replaceExt, byExt) {
 function libToInject(srcArr, buildDir) {
     var paths = new Array();
     srcArr.forEach(function (item) {
-        var replace = item.replace('./node_modules', buildDir + '/assets/lib/node_modules')
-            .replace('./bower_components', buildDir + '/assets/lib/bower_components');
-        paths.push(replace)
+        if (excludeFromInject.indexOf(item) <= -1) {
+            var replace = item.replace('./node_modules', buildDir + '/assets/lib/node_modules')
+                .replace('./bower_components', buildDir + '/assets/lib/bower_components');
+            paths.push(replace)
+        }
     });
     return paths;
 }
-
-
 
 function libToCopy(buildDir) {
     var paths = new Array();
