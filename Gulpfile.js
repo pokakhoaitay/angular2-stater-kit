@@ -10,7 +10,7 @@
  1. Install gulp globally:
  npm install --global gulp
  2. Type the following after navigating in your project folder:
- npm install gulp gulp-util gulp-sass gulp-uglify gulp-rename gulp-minify-css gulp-notify gulp-concat gulp-plumber browser-sync gulp-if gulp-typescript del gulp-util gulp-changed gulp-inject gulp-webserver gulp-replace --save-dev
+ npm install gulp gulp-util gulp-sass gulp-uglify gulp-rename gulp-minify-css gulp-notify gulp-concat gulp-plumber browser-sync gulp-if gulp-typescript del gulp-util gulp-changed gulp-inject gulp-replace --save-dev
  3. Move this file in your project folder
  4. Setup your vhosts or just use static server (see 'Prepare Browser-sync for localhost' below)
  5. Type 'Gulp' and ster developing
@@ -25,7 +25,7 @@ var gulp = require('gulp'),
     minifycss = require('gulp-minify-css'),
     concat = require('gulp-concat'),
     plumber = require('gulp-plumber'),
-//browserSync = require('browser-sync'),
+    browserSync = require('browser-sync').create(),
 //reload = browserSync.reload,
     neat = require('node-neat'),
     gulpif = require('gulp-if'),                         // pipe with condition
@@ -34,7 +34,6 @@ var gulp = require('gulp'),
     gutil = require('gulp-util'),                        // log util and more
     changed = require("gulp-changed"),                 // only pipe on files are diffrent whith source files
     inject = require('gulp-inject'),                      // Inject resource to html
-    webserver = require('gulp-webserver'),
     replace = require('gulp-replace')
     ;
 
@@ -414,14 +413,18 @@ gulp.task('clean.all', function () {
  * BROWSER
  *----------------------------------------*/
 gulp.task('0_browse.dev', function () {
-    gulp.src(BUILD_DIR_DEV)
-        .pipe(webserver({
-            livereload: false,
-            directoryListing: false,
-            open: true,
-            port: 7778
-        }));
+    browserSync.init({
+        server: {
+            baseDir: BUILD_DIR_DEV
+        }
+    });
+    gulp.watch([BUILD_DIR_DEV + "/**/*.html",
+        BUILD_DIR_DEV + "/**/*.css",
+        BUILD_DIR_DEV + "/**/*.js",
+    ]).on('change', browserSync.reload);
 });
+
+gulp.task('0_Exit-sever.dev', browserSync.exit);
 
 
 /*-----------------------------------------
@@ -429,7 +432,8 @@ gulp.task('0_browse.dev', function () {
  *----------------------------------------*/
 
 function logOnChange(e) {
-    console.log('File ' + e.path + ' was ' + e.type + ' and commited')
+    console.log('File ' + e.path + ' was ' + e.type + ' and commited');
+    //browserSync.reload;
 }
 var onError = function (err) {
     notify.onError({
